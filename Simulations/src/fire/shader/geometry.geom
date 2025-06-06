@@ -23,7 +23,7 @@ void main() {
     vec3 cameraUp = normalize(vec3(view[0][1], view[1][1], view[2][1]));
 
     vec4 pos = gl_in[0].gl_Position;
-    float particleSize = gs_in[0].size;
+    float particleSize = gs_in[0].size / 2;
     gl_Position = mvpMatrix * vec4((pos.xyz - cameraRight - cameraUp) * particleSize, 1.0f);
     ageColor = gs_in[0].color;
     rotation = gs_in[0].rotation;

@@ -42,6 +42,7 @@ void ParticleSystem::InitParticles()
 		std::cout << "Particle: " << i << " Max lifetime: " << particle.maxLifetimeSeconds << "\n\n";
 	}
 
+	// TODO: Remove whole sorting after order independent transparency is implemented
 	std::sort(particles.begin(), particles.end(), std::bind(&ParticleSystem::Sort, this, std::placeholders::_1, std::placeholders::_2));
 }
 
