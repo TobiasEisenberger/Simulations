@@ -63,11 +63,9 @@ int main()
 
 	glViewport(0, 0, g_width, g_height);
 	glfwSwapInterval(1);
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-	
 	glEnable(GL_BLEND);
-	glBlendEquation(GL_FUNC_ADD);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+	glBlendFunc(GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA);
+	glClearColor(0.75f, 0.75f, 0.75f, 1.0f);
 
 	std::cout << "OpenGL version: " << glGetString(GL_VERSION) << "\n";
 
@@ -75,10 +73,7 @@ int main()
 	glGenVertexArrays(1, &vertexArrayObjectId);
 	glBindVertexArray(vertexArrayObjectId);
 	
-	ParticleSystem particleSystem(500);
-
-	std::cout << "Sizeof particle vector: " << sizeof(particleSystem.GetParticles()) << '\n';
-	std::cout << "Sizeof particle: " << sizeof(Particle) << '\n';
+	ParticleSystem particleSystem(1);
 
 	unsigned int vertexBufferObjectId;
 	glGenBuffers(1, &vertexBufferObjectId);
@@ -107,6 +102,71 @@ int main()
 	unsigned int fireTexture = loadTexture("src/fire/textures/fire.png");
 	shader.setInt("particleTexture", 0);
 
+	unsigned int transparencyFramebuffer;
+	glGenFramebuffers(1, &transparencyFramebuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, transparencyFramebuffer);
+	glEnable(GL_BLEND);
+	glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ZERO, GL_ONE_MINUS_SRC_ALPHA);
+
+	unsigned int accumColorBuffer;
+	glGenTextures(1, &accumColorBuffer);
+	glBindTexture(GL_TEXTURE_2D, accumColorBuffer);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, g_width, g_height, 0, GL_RGBA, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, accumColorBuffer, 0);
+
+	unsigned int revealColorBuffer;
+	glGenTextures(1, &revealColorBuffer);
+	glBindTexture(GL_TEXTURE_2D, revealColorBuffer);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, g_width, g_height, 0, GL_RED, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, revealColorBuffer, 0);
+
+	const unsigned int transparentDrawBuffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+	glDrawBuffers(2, transparentDrawBuffers);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+		std::cout << "ERROR::FRAMEBUFFER:: Transparent framebuffer is not complete!" << std::endl;
+	
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, accumColorBuffer);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, revealColorBuffer);
+
+	Shader transparentShader("src/fire/shader/transparent.vert", nullptr, "src/fire/shader/transparent.frag");
+
+	unsigned int vaoPlaneId;
+	glGenVertexArrays(1, &vaoPlaneId);
+	glBindVertexArray(vaoPlaneId);
+
+	float planeVerts[] = {
+		-0.5f, 0.5f, // top left
+		-0.5f, -0.5f, // bot left
+		0.5f, 0.5f, // top right
+		0.5f, 0.5f, // top right
+		-0.5f, -0.5f, // bot left
+		0.5f, -0.5f, // bot right
+	};
+
+	unsigned int vboPlaneId;
+	glGenBuffers(1, &vboPlaneId);
+	glBindBuffer(GL_ARRAY_BUFFER, vboPlaneId);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 12, planeVerts, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), nullptr);
+	glEnableVertexAttribArray(0);
+
+	Shader planeShader("src/fire/shader/plane.vert", nullptr, "src/fire/shader/plane.frag");
+	planeShader.use();
+	planeShader.setInt("accum", 0);
+	planeShader.setInt("reveal", 1);
+	
 	int pointCount = particleSystem.GetParticles().size();
 	float elapsedTime = 0.0f;
 	while (!glfwWindowShouldClose(window))
@@ -123,21 +183,46 @@ int main()
 		glm::mat4 viewMatrix = camera.GetViewMatrix();
 		glm::mat4 projectionMatrix = glm::perspective(glm::radians(camera.Zoom), (float)g_width / g_height, 0.1f, 100.f);
 
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 		shader.setMat4f("view", glm::value_ptr(viewMatrix));
 		shader.setMat4f("projection", glm::value_ptr(projectionMatrix));
 
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, fireTexture);
+		// Transparency pass
+		glBindFramebuffer(GL_FRAMEBUFFER, transparencyFramebuffer);
+		glClearBufferfv(GL_COLOR, 0, glm::value_ptr(glm::vec4(0.0f)));
+		glClearBufferfv(GL_COLOR, 1, glm::value_ptr(glm::vec4(1.0f)));
+		transparentShader.use();
+		transparentShader.setMat4f("view", glm::value_ptr(viewMatrix));
+		transparentShader.setMat4f("projection", glm::value_ptr(projectionMatrix));
 
-		glDrawArrays(GL_POINTS, 0, pointCount);
+		glm::mat4 model = glm::mat4(1.0f);
+		// Red plane
+		transparentShader.setMat4f("model", glm::value_ptr(model));
+		transparentShader.setFloat4("color", 1.0f, 0.0f, 0.0f, 0.75f);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+
+		// Yellow plane
+		transparentShader.setMat4f("model", glm::value_ptr(glm::translate(model, glm::vec3(0.0f, 0.0f, 1.0f))));
+		transparentShader.setFloat4("color", 1.0f, 1.0f, 0.0f, 0.75f);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+
+		// Blue plane
+		transparentShader.setMat4f("model", glm::value_ptr(glm::translate(model, glm::vec3(0.0f, 0.0f, 2.0f))));
+		transparentShader.setFloat4("color", 0.0f, 0.0f, 1.0f, 0.75f);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+
+		// Composite pass
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glClear(GL_COLOR_BUFFER_BIT);
+		planeShader.use();
+		model = glm::mat4(1.0f);
+		planeShader.setMat4f("model", glm::value_ptr(glm::scale(model, glm::vec3(2.0f, 2.0f, 1.0f))));
+		glDrawArrays(GL_TRIANGLES, 0, 6);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
 
-	glDeleteVertexArrays(1, &vertexArrayObjectId);
+	// glDeleteVertexArrays(1, &vertexArrayObjectId);
 	glDeleteBuffers(1, &vertexBufferObjectId);
 	glDeleteProgram(shader.ID);
 
