@@ -64,7 +64,6 @@ int main()
 	glViewport(0, 0, g_width, g_height);
 	glfwSwapInterval(1);
 	glEnable(GL_BLEND);
-	glBlendFunc(GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA);
 	glClearColor(0.75f, 0.75f, 0.75f, 1.0f);
 
 	std::cout << "OpenGL version: " << glGetString(GL_VERSION) << "\n";
@@ -106,8 +105,7 @@ int main()
 	glGenFramebuffers(1, &transparencyFramebuffer);
 	glBindFramebuffer(GL_FRAMEBUFFER, transparencyFramebuffer);
 	glEnable(GL_BLEND);
-	glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ZERO, GL_ONE_MINUS_SRC_ALPHA);
-
+	
 	unsigned int accumColorBuffer;
 	glGenTextures(1, &accumColorBuffer);
 	glBindTexture(GL_TEXTURE_2D, accumColorBuffer);
@@ -188,6 +186,7 @@ int main()
 
 		// Transparency pass
 		glBindFramebuffer(GL_FRAMEBUFFER, transparencyFramebuffer);
+		glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ZERO, GL_ONE_MINUS_SRC_ALPHA);
 		glClearBufferfv(GL_COLOR, 0, glm::value_ptr(glm::vec4(0.0f)));
 		glClearBufferfv(GL_COLOR, 1, glm::value_ptr(glm::vec4(1.0f)));
 		transparentShader.use();
@@ -212,6 +211,7 @@ int main()
 
 		// Composite pass
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glBlendFunc(GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA);
 		glClear(GL_COLOR_BUFFER_BIT);
 		planeShader.use();
 		model = glm::mat4(1.0f);
