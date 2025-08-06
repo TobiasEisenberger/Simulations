@@ -19,7 +19,6 @@ out VS_OUT {
 } vs_out;
 
 float interpolateAlpha(float t);
-float interpolateVelocity(float t);
 
 void main()
 {	

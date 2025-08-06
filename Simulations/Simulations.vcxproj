@@ -147,6 +147,7 @@
     <ClInclude Include="src\Shader.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="README.md" />
     <None Include="src\fire\shader\fragment.frag" />
     <None Include="src\fire\shader\geometry.geom" />
     <None Include="src\fire\shader\vertex.vert" />

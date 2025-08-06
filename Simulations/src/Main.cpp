@@ -64,11 +64,9 @@ int main()
 	glViewport(0, 0, g_width, g_height);
 	glfwSwapInterval(1);
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-	glEnable(GL_DEPTH_TEST);
 	
 	glEnable(GL_BLEND);
 	glBlendEquation(GL_FUNC_ADD);
-	// glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 
 	std::cout << "OpenGL version: " << glGetString(GL_VERSION) << "\n";

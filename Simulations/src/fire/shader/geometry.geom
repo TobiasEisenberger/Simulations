@@ -19,24 +19,26 @@ out float rotation;
 
 void main() {    
     mat4 mvpMatrix = projection * view * model;
+    vec3 cameraRight = normalize(vec3(view[0][0], view[1][0], view[2][0]));
+    vec3 cameraUp = normalize(vec3(view[0][1], view[1][1], view[2][1]));
 
     vec4 pos = gl_in[0].gl_Position;
     float particleSize = gs_in[0].size;
-    gl_Position = mvpMatrix * (pos + vec4(-1.0f, -1.0f, 0.0f, 0.0f) * particleSize);
+    gl_Position = mvpMatrix * vec4((pos.xyz - cameraRight - cameraUp) * particleSize, 1.0f);
     ageColor = gs_in[0].color;
     rotation = gs_in[0].rotation;
     TexCoords = vec2(0.0f, 0.0f);
     EmitVertex();
 
-    gl_Position = mvpMatrix * (pos + vec4(-1.0f, 1.0f, 0.0f, 0.0f) * particleSize);
+    gl_Position = mvpMatrix * vec4((pos.xyz - cameraRight + cameraUp) * particleSize, 1.0f);
     TexCoords = vec2(0.0f, 1.0f);
     EmitVertex();
 
-    gl_Position = mvpMatrix * (pos + vec4(1.0f, -1.0f, 0.0f, 0.0f) * particleSize);
+    gl_Position = mvpMatrix * vec4((pos.xyz + cameraRight - cameraUp) * particleSize, 1.0f);
     TexCoords = vec2(1.0f, 0.0f);
     EmitVertex();
 
-    gl_Position = mvpMatrix * (pos + vec4(1.0f, 1.0f, 0.0f, 0.0f) * particleSize);
+    gl_Position = mvpMatrix * vec4((pos.xyz + cameraRight + cameraUp) * particleSize, 1.0f);
     TexCoords = vec2(1.0f, 1.0f);
     EmitVertex();
 

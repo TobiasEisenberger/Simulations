@@ -52,6 +52,7 @@
     <None Include="src\fire\shader\fragment.frag" />
     <None Include="src\fire\shader\vertex.vert" />
     <None Include="src\fire\shader\geometry.geom" />
+    <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="src\fire\textures\fire.png">
